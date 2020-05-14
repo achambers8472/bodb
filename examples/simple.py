@@ -12,9 +12,9 @@ def black_box_function(x: float, y: float) -> float:
     return target
 
 
-PBOUNDS = {"x": (2, 4), "y": (-3, 3)}
+pbounds = {"x": (2, 4), "y": (-3, 3)}
 
-INITIAL_POINTS = [
+initial_points = [
     {"x": 0, "y": 0},
     {"x": 1, "y": 2},
 ]
@@ -23,13 +23,13 @@ print("Connecting to database...")
 database = Database("sqlite:///test.db", "my_function", black_box_function)
 
 print("Creating optimizer and utility function...")
-optimizer = BayesianOptimization(f=None, pbounds=PBOUNDS, random_state=1,)
+optimizer = BayesianOptimization(f=None, pbounds=pbounds, random_state=1,)
 utility_function = UtilityFunction(kind="ucb", kappa=3, xi=1)
 
 print("Checking existing number of evaluations...")
 if database.count() < 2:  # Check if there are enough existing datapoints
     initial_targets = []
-    for point in INITIAL_POINTS:
+    for point in inital_points:
         target = black_box_function(**point)
         database.register(point, target)
 
