@@ -6,36 +6,43 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
 
+SA_TYPE_MAP = {
+    float: sa.Float,
+    int: sa.Integer,
+    str: sa.Text(),
+}
+
+
 class Database:
-    def __init__(self, uri, black_box_function):
-        self._uri = uri
+    def __init__(self, uri, func_name, func):
+        self._engine = sa.create_engine(uri)
+        self._Session = sessionmaker(bind=self._engine)
         self._Base = declarative_base()
-        self._FunctionEvaluation = class_from_func(self._Base, black_box_function)
-        with self._session_scope() as session:
+        self._FunctionEvaluation = _class_from_func(self._Base, func_name, func)
+        with self._session() as session:
             self._Base.metadata.create_all(session.bind)
 
     def register(self, point, target):
-        with self._session_scope() as session:
+        with self._session() as session:
             session.add(self._FunctionEvaluation(**point, target=target))
 
     def count(self):
-        with self._session_scope() as session:
+        with self._session() as session:
             return session.query(self._FunctionEvaluation).count()
 
     def all(self):
-        with self._session_scope() as session:
+        with self._session() as session:
             return [
                 e.to_point_target() for e in session.query(self._FunctionEvaluation)
             ]
 
-    def _session_scope(self):
-        return session_scope(sa.create_engine(self._uri))
+    def _session(self):
+        return _session_scope(self._Session)
 
 
 @contextmanager
-def session_scope(engine):
-    """Provide a transactional scope around a series of operations."""
-    session = sessionmaker(bind=engine)()
+def _session_scope(Session):
+    session = Session()
     try:
         yield session
         session.commit()
@@ -46,15 +53,8 @@ def session_scope(engine):
         session.close()
 
 
-SA_TYPE_MAP = {
-    float: sa.Float,
-    int: sa.Integer,
-    str: sa.Text(),
-}
-
-
-def class_from_func(Base, func):
-    tablename = func.__name__ + "_evaluations"
+def _class_from_func(Base, func_name, func):
+    tablename = func_name
 
     type_hints = get_type_hints(func)
     target_type = type_hints.pop("return")
