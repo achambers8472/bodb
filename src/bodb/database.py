@@ -10,6 +10,7 @@ SA_TYPE_MAP = {
     float: sa.Float,
     int: sa.Integer,
     str: sa.Text(),
+    bool: sa.Boolean,
 }
 
 
