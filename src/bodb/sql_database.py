@@ -33,6 +33,10 @@ class SQLDatabase:
         with self._session() as session:
             return session.query(self._FunctionEvaluation).count()
 
+    def __contains__(self, evaluation):
+        with self._session() as session:
+            return session.query(self._FunctionEvaluation).one_or_none() is not None
+
     def __iter__(self):
         with self._session() as session:
             return iter(
