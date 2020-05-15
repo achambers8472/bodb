@@ -1,16 +1,23 @@
 import time
 
-from bodb import Database
+from bodb import SQLDatabase
 
 from bayes_opt import BayesianOptimization
 from bayes_opt.util import UtilityFunction
 
 
-def black_box_function(x: float, y: float) -> float:
+def black_box_function(x, y):
     time.sleep(1)
     target = -(x ** 2) - (y - 1) ** 2 + 1
     return target
 
+
+arg_types = {
+    "x": float,
+    "y": float,
+}
+
+return_type = float
 
 pbounds = {"x": (2, 4), "y": (-3, 3)}
 
@@ -20,21 +27,21 @@ initial_points = [
 ]
 
 print("Connecting to database...")
-database = Database("sqlite:///test.db", "my_function", black_box_function)
-
-print("Creating optimizer and utility function...")
-optimizer = BayesianOptimization(f=None, pbounds=pbounds, random_state=1,)
-utility_function = UtilityFunction(kind="ucb", kappa=3, xi=1)
+database = SQLDatabase("sqlite:///test.db", "my_function", arg_types, return_type)
 
 print("Checking existing number of evaluations...")
-if database.count() < 2:  # Check if there are enough existing datapoints
+if len(database) < 2:  # Check if there are enough existing datapoints
     initial_targets = []
-    for point in inital_points:
+    for point in initial_points:
         target = black_box_function(**point)
-        database.register(point, target)
+        database.add((point, target))
+
+print("Creating optimizer and utility function...")
+optimizer = BayesianOptimization(f=None, pbounds=pbounds, random_state=1)
+utility_function = UtilityFunction(kind="ucb", kappa=3, xi=1)
 
 print("Registering evaluations with optimizer...")
-for (point, target) in database.all():
+for (point, target) in database:
     optimizer.register(point, target)
 
 while True:
@@ -44,7 +51,7 @@ while True:
         target = black_box_function(**point)
         print(f"Got {target}")
         print("Registering with database...")
-        database.register(point, target)
+        database.add((point, target))
         print("Registering with optimizer...")
         optimizer.register(point, target)
     except KeyboardInterrupt:
