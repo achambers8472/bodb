@@ -1,55 +1,96 @@
 from contextlib import contextmanager
 from typing import get_type_hints
 
-import sqlalchemy as sa
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import (
+    create_engine,
+    Column,
+    Float,
+    Integer,
+    Text,
+    Boolean,
+    MetaData,
+    func,
+    select,
+    Table,
+)
+from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.ext.declarative import declarative_base
 
 
 SA_TYPE_MAP = {
-    float: sa.Float,
-    int: sa.Integer,
-    str: sa.Text(),
-    bool: sa.Boolean,
+    float: Float,
+    int: Integer,
+    str: Text(),
+    bool: Boolean,
 }
 
 
 class SQLDatabase:
-    def __init__(self, uri, tablename, arg_types, return_type):
-        _engine = sa.create_engine(uri)
-        self._Session = sessionmaker(bind=_engine)
-        _Base = declarative_base()
-        self._FunctionEvaluation = _new_feval_class(
-            _Base, tablename, arg_types, return_type
-        )
-        with self._session() as session:
-            _Base.metadata.create_all(session.bind)
+    def __init__(self, uri, tablename):
+        self.uri = uri
+        self.tablename = tablename
 
-    def add(self, evaluation):
-        with self._session() as session:
-            session.add(self._FunctionEvaluation.from_evaluation(evaluation))
+    def append(self, evaluation):
+        with _engine_scope(self.uri) as engine:
+            Base = declarative_base()
+            _FunctionEvaluation = _new_feval_class(
+                Base,
+                self.tablename,
+                {key: type(value) for key, value in evaluation.items()},
+            )
+            with _session_scope(engine) as session:
+                Base.metadata.create_all(session.bind)
+                session.add(_FunctionEvaluation(**evaluation))
+        return self
+
+    def extend(self, iterable):
+        for item in iterable:
+            self.append(item) 
+        return self
 
     def __len__(self):
-        with self._session() as session:
-            return session.query(self._FunctionEvaluation).count()
+        with _engine_scope(self.uri) as engine:
+            meta = MetaData()
+            table = Table(self.tablename, meta, autoload=True, autoload_with=engine)
+            with _session_scope(engine) as session:
+                return session.query(table).count()
 
-    def __contains__(self, evaluation):
-        with self._session() as session:
-            return session.query(self._FunctionEvaluation).one_or_none() is not None
+    def __getitem__(self, key):
+        with _engine_scope(self.uri) as engine:
+            meta = MetaData()
+            table = Table(self.tablename, meta, autoload=True, autoload_with=engine)
+            with _session_scope(engine):
+                return session.query(table).filter(table.columns._id == key).one()
+
+    # def __contains__(self, evaluation):
+    #     with self._session() as session:
+    #         return session.query(self._FunctionEvaluation).one_or_none() is not None
 
     def __iter__(self):
-        with self._session() as session:
-            return iter(
-                [e.to_evaluation() for e in session.query(self._FunctionEvaluation)]
-            )
-
-    def _session(self):
-        return _session_scope(self._Session)
+        with _engine_scope(self.uri) as engine:
+            meta = MetaData()
+            table = Table(self.tablename, meta, autoload=True, autoload_with=engine)
+            with _session_scope(engine) as session:
+                return iter(
+                    [
+                        {
+                            name: getattr(e, name)
+                            for name in table.columns.keys()
+                            if name != "_id"
+                        }
+                        for e in session.query(table)
+                    ]
+                )
 
 
 @contextmanager
-def _session_scope(Session):
-    session = Session()
+def _engine_scope(uri):
+    yield create_engine(uri)
+
+
+@contextmanager
+def _session_scope(engine):
+    session = Session(bind=engine)
     try:
         yield session
         session.commit()
@@ -60,36 +101,20 @@ def _session_scope(Session):
         session.close()
 
 
-def _new_feval_class(Base, tablename, arg_types, return_type):
-    id_column = sa.Column(sa.Integer, primary_key=True)
+def _new_feval_class(Base, tablename, types):
+    id_column = Column(Integer, primary_key=True)
 
-    arg_columns = {
-        name: sa.Column(SA_TYPE_MAP[type], nullable=False)
-        for name, type in arg_types.items()
+    columns = {
+        name: Column(SA_TYPE_MAP[type], nullable=False) for name, type in types.items()
     }
-    return_column = sa.Column(SA_TYPE_MAP[return_type], nullable=True)
-
-    @classmethod
-    def from_evaluation(cls, evaluation):
-        return cls(**evaluation[0], target=evaluation[1])
 
     def to_evaluation(self):
-        return (
-            {name: getattr(self, name) for name in arg_types},
-            self.target,
-        )
+        return
 
     new_type = type(
         "FunctionEvaluation",
         (Base,),
-        {
-            "__tablename__": tablename,
-            "id": id_column,
-            "from_evaluation": from_evaluation,
-            "to_evaluation": to_evaluation,
-            **arg_columns,
-            "target": return_column,
-        },
+        {"__tablename__": tablename, "_id": id_column, **columns,},
     )
 
     return new_type
