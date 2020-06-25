@@ -1,4 +1,5 @@
 from contextlib import contextmanager
+from functools import singledispatch
 
 from sqlalchemy import (
     create_engine,
@@ -15,12 +16,29 @@ from sqlalchemy.exc import NoSuchTableError
 from sqlalchemy.ext.declarative import declarative_base
 
 
-SA_TYPE_MAP = {
-    float: Float,
-    int: Integer,
-    str: Text(),
-    bool: Boolean,
-}
+@singledispatch
+def mapped_type(instance):
+    raise ValueError(f"No mapped type defined for {type(instance)}")
+
+
+@mapped_type.register
+def _(instance: int):
+    return Integer
+
+
+@mapped_type.register
+def _(instance: float):
+    return Float
+
+
+@mapped_type.register
+def _(instance: str):
+    return Text()
+
+
+@mapped_type.register
+def _(instance: bool):
+    return Boolean
 
 
 class SQLDatabase:
@@ -30,11 +48,7 @@ class SQLDatabase:
 
     def append(self, evaluation):
         Base = declarative_base()
-        _FunctionEvaluation = _new_feval_class(
-            Base,
-            self.tablename,
-            {key: type(value) for key, value in evaluation.items()},
-        )
+        _FunctionEvaluation = _new_feval_class(Base, self.tablename, evaluation,)
         with self._session() as session:
             Base.metadata.create_all(session.bind)
             session.add(_FunctionEvaluation(**evaluation))
@@ -121,11 +135,12 @@ def _session_scope(session):
         session.close()
 
 
-def _new_feval_class(Base, tablename, types):
+def _new_feval_class(Base, tablename, dict_):
     id_column = Column(Integer, primary_key=True)
 
     columns = {
-        name: Column(SA_TYPE_MAP[type], nullable=False) for name, type in types.items()
+        name: Column(mapped_type(value), nullable=False)
+        for name, value in dict_.items()
     }
 
     new_type = type(
