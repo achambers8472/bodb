@@ -1,6 +1,7 @@
 import time
 
 from bodb import SQLDatabase
+from toolz.dicttoolz import dissoc
 
 from bayes_opt import BayesianOptimization
 from bayes_opt.util import UtilityFunction
@@ -12,13 +13,6 @@ def black_box_function(x, y):
     return target
 
 
-arg_types = {
-    "x": float,
-    "y": float,
-}
-
-return_type = float
-
 pbounds = {"x": (2, 4), "y": (-3, 3)}
 
 initial_points = [
@@ -27,22 +21,22 @@ initial_points = [
 ]
 
 print("Connecting to database...")
-database = SQLDatabase("sqlite:///test.db", "my_function", arg_types, return_type)
+database = SQLDatabase("sqlite:///test.db", "my_function")
 
 print("Checking existing number of evaluations...")
 if len(database) < 2:  # Check if there are enough existing datapoints
     initial_targets = []
     for point in initial_points:
         target = black_box_function(**point)
-        database.add((point, target))
+        database.append({**point, "target": target})
 
 print("Creating optimizer and utility function...")
 optimizer = BayesianOptimization(f=None, pbounds=pbounds, random_state=1)
 utility_function = UtilityFunction(kind="ucb", kappa=3, xi=1)
 
 print("Registering evaluations with optimizer...")
-for (point, target) in database:
-    optimizer.register(point, target)
+for evaluation in database:
+    optimizer.register(dissoc(evaluation, "target"), evaluation["target"])
 
 while True:
     try:
@@ -51,7 +45,7 @@ while True:
         target = black_box_function(**point)
         print(f"Got {target}")
         print("Registering with database...")
-        database.add((point, target))
+        database.append({**point, "target": target})
         print("Registering with optimizer...")
         optimizer.register(point, target)
     except KeyboardInterrupt:
