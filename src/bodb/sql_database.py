@@ -21,23 +21,23 @@ def mapped_type(instance):
     raise ValueError(f"No mapped type defined for {type(instance)}")
 
 
-@mapped_type.register
-def _(instance: int):
+@mapped_type.register(int)
+def _(instance):
     return Integer
 
 
-@mapped_type.register
-def _(instance: float):
+@mapped_type.register(float)
+def _(instance):
     return Float
 
 
-@mapped_type.register
-def _(instance: str):
+@mapped_type.register(str)
+def _(instance):
     return Text()
 
 
-@mapped_type.register
-def _(instance: bool):
+@mapped_type.register(bool)
+def _(instance):
     return Boolean
 
 
