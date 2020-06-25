@@ -24,7 +24,7 @@ setup(
     keywords="bayesian optimisation sql",
     package_dir={"": "src"},
     packages=find_packages(where="src"),
-    python_requires=">=3.5",
+    python_requires=">=3.6",
     install_requires=["sqlalchemy"],
     extras_require={"examples": ["bayesian-optimization"],},
     project_urls={
