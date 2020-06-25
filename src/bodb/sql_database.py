@@ -14,6 +14,7 @@ from sqlalchemy import (
     Table,
 )
 from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.exc import NoSuchTableError
 from sqlalchemy.ext.declarative import declarative_base
 
 
@@ -60,7 +61,8 @@ class SQLDatabase:
     def __len__(self):
         with self._session() as session:
             table = self._reflected_table(session)
-            return session.query(table).count()
+            length = 0 if table is None else session.query(table).count()
+        return length
 
     def __getitem__(self, key):
         with self._session() as session:
@@ -84,8 +86,14 @@ class SQLDatabase:
                 yield session
 
     def _reflected_table(self, session):
-        meta = MetaData()
-        return Table(self.tablename, meta, autoload=True, autoload_with=session.bind)
+        try:
+            table = Table(
+                self.tablename, MetaData(), autoload=True, autoload_with=session.bind
+            )
+        except NoSuchTableError:
+            return None
+
+        return table
 
 
 def mapped_to_dict(table, mapped):
@@ -117,9 +125,6 @@ def _new_feval_class(Base, tablename, types):
     columns = {
         name: Column(SA_TYPE_MAP[type], nullable=False) for name, type in types.items()
     }
-
-    def to_evaluation(self):
-        return
 
     new_type = type(
         "FunctionEvaluation",

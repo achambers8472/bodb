@@ -14,6 +14,10 @@ def sql_database(tmp_path):
     return SQLDatabase(f"sqlite:///{tmp_path/'test.db'}", "test")
 
 
+def test_new_len(sql_database):
+    assert len(sql_database) == 0
+
+
 @pytest.mark.parametrize(
     "item",
     [{"x": 1}, {"x": 1, "y": 2}, {"x": 1, "y": 2.0}, {"x": 1, "y": 2.0, "z": "hello"},],
