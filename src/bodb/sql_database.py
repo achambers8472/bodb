@@ -95,6 +95,9 @@ class SQLDatabase:
             )
         return items
 
+    def __eq__(self, other):
+        return list(self) == list(other)
+
     @contextmanager
     def _session(self):
         with _engine_scope(create_engine(self.uri)) as engine:

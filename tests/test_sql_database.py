@@ -1,3 +1,6 @@
+import pickle
+from tempfile import mkstemp
+
 from bodb import SQLDatabase
 
 import pytest
@@ -10,8 +13,18 @@ import pytest
 
 
 @pytest.fixture
-def sql_database(tmp_path):
-    return SQLDatabase(f"sqlite:///{tmp_path/'test.db'}", "test")
+def sql_database_factory(tmp_path):
+    def factory():
+        _, path = mkstemp(suffix=".db", dir=tmp_path)
+        uri = f"sqlite:///{path}"
+        return SQLDatabase(uri, "my_table")
+
+    return factory
+
+
+@pytest.fixture
+def sql_database(sql_database_factory):
+    return sql_database_factory()
 
 
 def test_new_len(sql_database):
@@ -51,3 +64,17 @@ def test_weird_type(sql_database):
 
 # def test_extend_getitem_slice(sql_database):
 #     assert sql_database.extend([{"x": 0}, {"x": 1})[1] == {"x": 1}
+
+
+@pytest.mark.parametrize("items", [[], [{"x": 1}]])
+def test_equality(sql_database_factory, items):
+    table1 = sql_database_factory()
+    table2 = sql_database_factory()
+    table1.extend(items)
+    table2.extend(items)
+    assert table1 == table2
+
+
+def test_picklable(sql_database):
+    sql_database.append({"x": 1})
+    assert pickle.loads(pickle.dumps(sql_database)) == sql_database
