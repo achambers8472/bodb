@@ -26,7 +26,7 @@ setup(
     packages=find_packages(where="src"),
     python_requires=">=3.6",
     install_requires=["sqlalchemy"],
-    extras_require={"examples": ["bayesian-optimization", "toolz"]},
+    extras_require={"examples": ["bayesian-optimization", "toolz", "click"]},
     project_urls={
         "Bug Reports": "https://github.com/achambers8472/bodb/issues",
         "Source": "https://github.com/achambers8472/bodb/",

@@ -1,6 +1,7 @@
 import time
 
 from bodb import SQLDatabase
+import click
 from toolz.dicttoolz import dissoc
 
 from bayes_opt import BayesianOptimization
@@ -20,34 +21,42 @@ initial_points = [
     {"x": 1, "y": 2},
 ]
 
-print("Connecting to database...")
-database = SQLDatabase("sqlite:///test.db", "my_function")
 
-print("Checking existing number of evaluations...")
-if len(database) < 2:  # Check if there are enough existing datapoints
-    initial_targets = []
-    for point in initial_points:
-        target = black_box_function(**point)
-        database.append({**point, "target": target})
+@click.command()
+@click.argument("db_uri")
+@click.argument("tablename")
+def main(db_uri, tablename):
+    click.echo("Connecting to database...")
+    database = SQLDatabase(db_uri, tablename)
 
-print("Creating optimizer and utility function...")
-optimizer = BayesianOptimization(f=None, pbounds=pbounds, random_state=1)
-utility_function = UtilityFunction(kind="ucb", kappa=3, xi=1)
+    click.echo("Checking existing number of evaluations...")
+    if len(database) < 2:  # Check if there are enough existing datapoints
+        for point in initial_points:
+            target = black_box_function(**point)
+            database.append({**point, "target": target})
 
-print("Registering evaluations with optimizer...")
-for evaluation in database:
-    optimizer.register(dissoc(evaluation, "target"), evaluation["target"])
+    click.echo("Creating optimizer and utility function...")
+    optimizer = BayesianOptimization(f=None, pbounds=pbounds, random_state=1)
+    utility_function = UtilityFunction(kind="ucb", kappa=3, xi=1)
 
-while True:
-    try:
-        point = optimizer.suggest(utility_function)
-        print(f"Evaluating black-box function for {point}")
-        target = black_box_function(**point)
-        print(f"Got {target}")
-        print("Registering with database...")
-        database.append({**point, "target": target})
-        print("Registering with optimizer...")
-        optimizer.register(point, target)
-    except KeyboardInterrupt:
-        print("Exiting...")
-        break
+    click.echo("Registering evaluations with optimizer...")
+    for evaluation in database:
+        optimizer.register(dissoc(evaluation, "target"), evaluation["target"])
+
+    while True:
+        try:
+            point = optimizer.suggest(utility_function)
+            click.echo(f"Evaluating black-box function for {point}")
+            target = black_box_function(**point)
+            click.echo(f"Got {target}")
+            click.echo("Registering with database...")
+            database.append({**point, "target": target})
+            click.echo("Registering with optimizer...")
+            optimizer.register(point, target)
+        except KeyboardInterrupt:
+            click.echo("Exiting...")
+            break
+
+
+if __name__ == "__main__":
+    main()
