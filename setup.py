@@ -9,7 +9,7 @@ with open(path.join(here, "README.md"), encoding="utf-8") as f:
 setup(
     name="bodb",
     version="0.2.0",
-    description="Simple class for managing database-stored function evaluations",
+    description="Simple class for abstracting database table access",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/achambers8472/bodb",
