@@ -20,7 +20,7 @@ def test_new_len(sql_database):
 
 @pytest.mark.parametrize(
     "item",
-    [{"x": 1}, {"x": 1, "y": 2}, {"x": 1, "y": 2.0}, {"x": 1, "y": 2.0, "z": "hello"},],
+    [{"x": 1}, {"x": 1, "y": 2}, {"x": 1, "y": 2.0}, {"x": 1, "y": 2.0, "z": "hello"}],
 )
 def test_append_iter(sql_database, item):
     assert list(sql_database.append(item)) == [item]
@@ -33,7 +33,7 @@ def test_extend_iter(sql_database, items):
     assert list(sql_database.extend(items)) == items
 
 
-@pytest.mark.parametrize("items", [[{"x": 1}], [{"x": 1}, {"x": 2}],])
+@pytest.mark.parametrize("items", [[{"x": 1}], [{"x": 1}, {"x": 2}]])
 def test_create_length(sql_database, items):
     assert len(sql_database.extend(items)) == len(items)
 

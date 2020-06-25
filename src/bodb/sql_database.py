@@ -1,5 +1,4 @@
 from contextlib import contextmanager
-from typing import get_type_hints
 
 from sqlalchemy import (
     create_engine,
@@ -9,11 +8,9 @@ from sqlalchemy import (
     Text,
     Boolean,
     MetaData,
-    func,
-    select,
     Table,
 )
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import Session
 from sqlalchemy.exc import NoSuchTableError
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -117,7 +114,7 @@ def _session_scope(session):
     try:
         yield session
         session.commit()
-    except:
+    except:  # noqa: E722
         session.rollback()
         raise
     finally:
@@ -134,7 +131,7 @@ def _new_feval_class(Base, tablename, types):
     new_type = type(
         "FunctionEvaluation",
         (Base,),
-        {"__tablename__": tablename, "_id": id_column, **columns,},
+        {"__tablename__": tablename, "_id": id_column, **columns},
     )
 
     return new_type
