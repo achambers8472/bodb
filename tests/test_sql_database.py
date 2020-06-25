@@ -40,3 +40,7 @@ def test_create_length(sql_database, items):
 
 def test_append_getitem(sql_database):
     assert sql_database.append({"x": 1})[1] == {"x": 1}
+
+
+# def test_extend_getitem_slice(sql_database):
+#     assert sql_database.extend([{"x": 0}, {"x": 1})[1] == {"x": 1}

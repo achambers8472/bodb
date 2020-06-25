@@ -77,7 +77,12 @@ class SQLDatabase:
     def __iter__(self):
         with self._session() as session:
             table = self._reflected_table(session)
-            return iter([mapped_to_dict(table, e) for e in session.query(table)])
+            items = (
+                iter([])
+                if table is None
+                else iter([mapped_to_dict(table, e) for e in session.query(table)])
+            )
+        return items
 
     @contextmanager
     def _session(self):
