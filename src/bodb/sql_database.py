@@ -31,66 +31,76 @@ class SQLDatabase:
         self.tablename = tablename
 
     def append(self, evaluation):
-        with _engine_scope(self.uri) as engine:
-            Base = declarative_base()
-            _FunctionEvaluation = _new_feval_class(
-                Base,
-                self.tablename,
-                {key: type(value) for key, value in evaluation.items()},
-            )
-            with _session_scope(engine) as session:
-                Base.metadata.create_all(session.bind)
-                session.add(_FunctionEvaluation(**evaluation))
+        Base = declarative_base()
+        _FunctionEvaluation = _new_feval_class(
+            Base,
+            self.tablename,
+            {key: type(value) for key, value in evaluation.items()},
+        )
+        with self._session() as session:
+            Base.metadata.create_all(session.bind)
+            session.add(_FunctionEvaluation(**evaluation))
         return self
 
     def extend(self, iterable):
+        # Base = declarative_base()
+        # _FunctionEvaluation = _new_feval_class(
+        #     Base,
+        #     self.tablename,
+        #     {key: type(value) for key, value in evaluation.items()},
+        # )
+        # with self._session() as session:
+        #     Base.metadata.create_all(session.bind)
+        #     objects = map(lambda d: _FunctionEvaluation(**d), iterable)
+        #     session.add_all(objects)
         for item in iterable:
-            self.append(item) 
+            self.append(item)
         return self
 
     def __len__(self):
-        with _engine_scope(self.uri) as engine:
-            meta = MetaData()
-            table = Table(self.tablename, meta, autoload=True, autoload_with=engine)
-            with _session_scope(engine) as session:
-                return session.query(table).count()
+        with self._session() as session:
+            table = self._reflected_table(session)
+            return session.query(table).count()
 
     def __getitem__(self, key):
-        with _engine_scope(self.uri) as engine:
-            meta = MetaData()
-            table = Table(self.tablename, meta, autoload=True, autoload_with=engine)
-            with _session_scope(engine):
-                return session.query(table).filter(table.columns._id == key).one()
+        with self._session() as session:
+            table = self._reflected_table(session)
+            result = session.query(table).filter(table.columns["_id"] == key).one()
+            return mapped_to_dict(table, result)
 
     # def __contains__(self, evaluation):
     #     with self._session() as session:
     #         return session.query(self._FunctionEvaluation).one_or_none() is not None
 
     def __iter__(self):
-        with _engine_scope(self.uri) as engine:
-            meta = MetaData()
-            table = Table(self.tablename, meta, autoload=True, autoload_with=engine)
-            with _session_scope(engine) as session:
-                return iter(
-                    [
-                        {
-                            name: getattr(e, name)
-                            for name in table.columns.keys()
-                            if name != "_id"
-                        }
-                        for e in session.query(table)
-                    ]
-                )
+        with self._session() as session:
+            table = self._reflected_table(session)
+            return iter([mapped_to_dict(table, e) for e in session.query(table)])
+
+    @contextmanager
+    def _session(self):
+        with _engine_scope(create_engine(self.uri)) as engine:
+            with _session_scope(Session(bind=engine)) as session:
+                yield session
+
+    def _reflected_table(self, session):
+        meta = MetaData()
+        return Table(self.tablename, meta, autoload=True, autoload_with=session.bind)
+
+
+def mapped_to_dict(table, mapped):
+    return {
+        attr: getattr(mapped, attr) for attr in table.columns.keys() if attr != "_id"
+    }
 
 
 @contextmanager
-def _engine_scope(uri):
-    yield create_engine(uri)
+def _engine_scope(engine):
+    yield engine
 
 
 @contextmanager
-def _session_scope(engine):
-    session = Session(bind=engine)
+def _session_scope(session):
     try:
         yield session
         session.commit()

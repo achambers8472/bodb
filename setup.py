@@ -8,7 +8,7 @@ with open(path.join(here, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="bodb",
-    version="0.1.0",
+    version="0.2.0",
     description="Simple class for managing database-stored function evaluations",
     long_description=long_description,
     long_description_content_type="text/markdown",
